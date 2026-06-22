@@ -21,7 +21,7 @@ from src.utils import select_labels
 
 
 # Separa/prepara a base de dados
-df = read_csv('datasets/Iris.csv', header=0)
+df = read_csv('datasets/Car.csv', header=0)
 # separa os atributos (X) e o rótulo (y)
 X = df.iloc[:,:-1].values
 y = df.iloc[:,-1].values
