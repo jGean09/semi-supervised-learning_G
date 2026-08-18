@@ -28,6 +28,8 @@ class MySelfNewEssemble:
         self.transduction_ = None
         self.n_iter_ = 0
         self.termination_condition_ = None
+        # Índices já reatribuídos pelo comitê — protegidos de remoção futura pelo silhouette
+        self.committee_labeled_ = set()
 
     def fit(self, X, y):
         X = check_array(X)
@@ -35,6 +37,8 @@ class MySelfNewEssemble:
 
         self.transduction_ = np.copy(y)
         labeled_mask = y != -1
+        # Reseta a proteção a cada chamada de fit()
+        self.committee_labeled_ = set()
 
         # Treinamento inicial
         self.classifier_.fit(X[labeled_mask], y[labeled_mask])
@@ -72,8 +76,14 @@ class MySelfNewEssemble:
                 silhouette_vals = silhouette_samples(X_labeled, y_labeled)
                 weak_mask = silhouette_vals < self.silhouette_threshold
 
+                # Protege índices já reatribuídos pelo comitê: não remove de novo.
+                # Sem isso, o mesmo índice é removido → reatribuído → removido → loop infinito.
+                indices_labeled = np.where(labeled_mask)[0]
+                if self.committee_labeled_:
+                    already_committee = np.isin(indices_labeled, list(self.committee_labeled_))
+                    weak_mask[already_committee] = False
+
                 if np.any(weak_mask):
-                    indices_labeled = np.where(labeled_mask)[0]
                     indices_weak = indices_labeled[weak_mask]
                     labeled_mask[indices_weak] = False
                     self.transduction_[indices_weak] = -1
@@ -81,7 +91,7 @@ class MySelfNewEssemble:
                     if self.verbose:
                         print(f"{len(indices_weak)} pseudo-rótulos removidos pelo silhouette. Comitê assume.")
 
-                    # Votacao ponderada: especialista + comitê
+                    # Votação ponderada: especialista + comitê
                     X_weak = X[indices_weak]
                     prob_specialist = self.classifier_.predict_proba(X_weak)
                     prob_committee = self.committee.predict_proba(X_weak)
@@ -92,6 +102,8 @@ class MySelfNewEssemble:
 
                     self.transduction_[indices_weak] = new_labels
                     labeled_mask[indices_weak] = True
+                    # Marca esses índices como protegidos — não oscilam mais
+                    self.committee_labeled_.update(indices_weak.tolist())
                     used_committee = True
 
                     if self.verbose:

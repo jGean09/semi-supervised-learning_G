@@ -2,6 +2,7 @@ from random import choice
 
 from numpy import where
 from pandas import read_csv
+# pyrefly: ignore [missing-import]
 from selfNewEssembleCP import MySelfNewEssembleCP
 from sklearn import clone
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
@@ -14,6 +15,7 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier
 from xgboost import XGBClassifier
 
+# pyrefly: ignore [missing-import]
 from src.utils import select_labels
 
 ##################################################
@@ -23,8 +25,8 @@ from src.utils import select_labels
 # Separa/prepara a base de dados
 df = read_csv('datasets/Car.csv', header=0)
 # separa os atributos (X) e o rótulo (y)
-X = df.iloc[:,:-1].values
-y = df.iloc[:,-1].values
+X = df.iloc[:,:-1].values ##Pega todas as colunas, exceto a última, como atributos
+y = df.iloc[:,-1].values ##Pega a última coluna como rótulo
 
 
 # Inicializa os classificadores
@@ -40,9 +42,11 @@ classifiers = {
 
 
 # Dividir o dataset em um split 85-15 para dados de treinamento e teste.
-# Para fazer uma validação justa após todo o experimento, foi separado 15% dos
-# dados. O especialista e o comitê serão treinados usando o restante dos dados
-# rotulados.
+# Para fazer uma validação justa após todo o experimento ou uma prova final, 
+# foi separado 15% dos dados. O especialista e o comitê serão treinados usando
+# o restante dos dados rotulados, ou seja, os 85% dos dados que possuem rótulos 
+# disponíveis .
+
 X_train_all, X_test_all, y_train_all, y_test_all = train_test_split(
     X,
     y,
@@ -80,25 +84,30 @@ print(f"tamanho de y_train: {len(y_train)}\n")
 # são armazenados para comparação posterior. O classificador com a melhor
 # acurácia no conjunto de teste será selecionado como o especialista para o
 # processo iterativo de rotulagem.
-results: dict[str, list[float]] = {
+
+results: dict[str, list[float]] = {  ##Inicializa um dicionário para armazenar os resultados de acurácia de cada classificador.
+                                     ##EXEMPLO: {"KNN": [], "Naive Bayes": [], ...}`
     name: []
     for name in classifiers.keys()
 }
 
 for name, model in classifiers.items():
 
-    if name == "Logistic Regression":
+    ## Alguns classificadores, como a Regressão Logística e a Rede Neural, 
+    ## podem exigir um número maior de iterações para convergir. 
+    if name == "Logistic Regression":  
         model = model(max_iter=1000)
     elif name == "Neural Network":
         model = model(max_iter=3000)
     else:
         model = model()
 
+    ##Primeiro, o modelo é treinado usando os dados de treinamento rotulados (X_train e y_train).
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test_all)
-    acc = accuracy_score(y_test_all, y_pred)
-    results[name].append(acc)
-    print(f"{name}: {results[name]}")
+    acc = accuracy_score(y_test_all, y_pred) ##calcula a acurácia do modelo
+    results[name].append(acc) ##Guarda a acurácia do modelo no dicionário de resultados
+    print(f"{name}: {results[name]}") ##Exibe a acurácia do modelo
 
 # Seleciona o melhor classificador
 max_acc = max(results.values())
@@ -128,7 +137,7 @@ for name, model in classifiers.items():
 # comitê com base na acurácia.
 weights = []
 for name, model in models:
-    model_clone = clone(model)
+    model_clone = clone(model) ##Cria uma cópia do modelo para evitar modificar o modelo original durante o treinamento.
     model_clone.fit(X_train, y_train)
     y_pred = model_clone.predict(X_train)
     acc = accuracy_score(y_train, y_pred)
@@ -138,16 +147,6 @@ for name, model in models:
 total_weight = sum(weights)
 normalized_weights = [w / total_weight for w in weights]
 
-# Cria comitê ponderado
-committee = VotingClassifier(
-    estimators=models,
-    voting='soft',
-    weights=normalized_weights,
-    verbose=False
-)
-
-committee.fit(X_train, y_train)
-
 
 ##################################################
 # Inicio do Self-Training com o especialista e o comitê.
@@ -156,8 +155,7 @@ committee.fit(X_train, y_train)
 # rotuladas
 specialist = MySelfNewEssembleCP(
     base_estimator=best_model(),
-    committee=committee,
-    threshold=0.95,  # Valor inicial do threshold, o threshold é atualizado durante a execução do algoritmo.
+    threshold=0.99,  # Valor inicial do threshold, o threshold é atualizado durante a execução do algoritmo.
     max_iter=100,
     silhouette_threshold=-0.2,
     verbose=True
@@ -181,7 +179,7 @@ print(f"Quantidade de instâncias que foram rotuladas após o treinamento: {num_
 print(
     f'\nTotal de instâncias: {X.shape}'
     f'\nTotal de selecionadas para o experimento: {X_train_all.shape}'
-    f'\nTotal de rotuladas que foram para o comitê: {X_train.shape}'
+    f'\nTotal de instâncias rotuladas usadas no treinamento inicial: {X_train.shape}'
     f'\nTotal de rotuladas que foram para o especialista: {sum(where(y_2 != -1, 1, 0))}'
 )
 
