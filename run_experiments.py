@@ -1,15 +1,28 @@
 """
 run_experiments.py
 
-Roda o pipeline (seleção do melhor classificador -> comitê -> self-training
-com MySelfNewEssembleCP) em todos os datasets da pasta `datasets/` e salva
-os resultados (acurácia, tempo de execução, iterações, critério de parada
-etc.) em um arquivo CSV.
+Roda o pipeline geral (seleciona o melhor classificador -> tenta rotular todas as
+instâncias não rotuladas -> quando nenhuma das instâncias atingem o nível de
+confiança definido, aplica o índice Silhouette) em todos os datasets da pasta
+`datasets/` e salva os resultados (acurácia, tempo de execução, iterações,
+critério de parada etc.) em um arquivo CSV.
+
+As duas variantes disponíveis na reavaliação de instâncias fracas são:
+
+1. MySelfNewEssembleCPCommittee:
+    Após o Silhouette, caso sejam encontradas instâncias com índice inferior
+    ao threshold, seus pseudo-rótulos são removidos (-1) e elas são
+    imediatamente reavaliadas pelo comitê de classificadores.
+
+2. MySelfNewEssembleCP:
+    Após o Silhouette, caso sejam encontradas instâncias com índice inferior
+    ao threshold, seus pseudo-rótulos são removidos (-1) e elas são
+    reavaliadas pelo próprio especialista na próxima iteração.
+
 
 Como usar:
-    Coloque este arquivo na raiz do projeto (mesmo nível de
-    GermanCredit.py / Car.py, onde o import `from selfNewEssembleCP import
-    MySelfNewEssembleCP` funciona) e rode:
+    Coloque este arquivo na raiz do projeto (mesmo nível da pasta 'datasets/'
+    e dos arquivos reevaluation_of_labels.py, selfNewEssembleCP.py, etc.) e rode:
 
         python run_experiments.py
 
