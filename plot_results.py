@@ -116,6 +116,15 @@ ESPECIALISTA_CORES = {
     "Neural Network": "#ec4899",
 }
 
+ESPECIALISTA_SIGLAS = {
+    "KNN": "KNN",
+    "Naive Bayes": "NB",
+    "Decision Tree": "DT",
+    "Random Forest": "RF",
+    "XGBoost": "XGB",
+    "Logistic Regression": "LR",
+    "Neural Network": "NN",
+}
 
 def style_axis(ax, title, ylabel):
     ax.set_title(title, fontsize=13, fontweight="bold")
@@ -154,7 +163,7 @@ def plot_acuracia(df: pd.DataFrame, output_dir: Path):
         print("Nenhum dataset com dados de acurácia, gráfico não gerado.")
         return
 
-    fig, ax = plt.subplots(figsize=(max(8, len(df) * 0.6), 5))
+    fig, ax = plt.subplots(figsize=(max(16, len(df) * 0.9), 7))
 
     x = range(len(df))
     largura = 0.35
@@ -162,24 +171,55 @@ def plot_acuracia(df: pd.DataFrame, output_dir: Path):
         [i - largura / 2 for i in x],
         df["acuracia_antes_self_training"],
         width=largura,
-        label="Acurácia inicial (treino c/ poucos dados)",
+            label="Antes do self-training",
+
         color="#94a3b8",
     )
     ax.bar(
         [i + largura / 2 for i in x],
         df["acuracia_apos_self_training"],
         width=largura,
-        label="Acurácia final (especialista após self-training)",
+        label="Após o self-training",
         color="#2563eb",
     )
     ax.set_xticks(list(x))
     ax.set_xticklabels(df["dataset_label"])
     ax.set_ylim(0, 1)
-    ax.legend()
-    style_axis(ax, "Acurácia por dataset: inicial vs. após self-training", "Acurácia")
-    anotar_especialista(ax, df, x)
+    ax.legend(
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.12),
+        ncol=1,
+    )
 
-    fig.subplots_adjust(bottom=0.28)
+    ## Siglas
+    siglas = df["melhor_modelo"].map(
+        lambda modelo: ESPECIALISTA_SIGLAS.get(modelo, modelo)
+    )
+
+    ax.set_xticklabels(
+        [
+            f"{dataset}\n({sigla})"
+            for dataset, sigla in zip(df["dataset_label"], siglas)
+        ]
+    )
+
+    style_axis(ax, "Acurácia por dataset: inicial vs. após self-training", "Acurácia")
+
+
+    especialistas = " | ".join(
+        f"{sigla} = {nome}"
+        for nome, sigla in ESPECIALISTA_SIGLAS.items()
+    )
+
+    fig.text(
+        0.5,
+        0.01,
+        f"Especialistas: {especialistas}",
+        ha="center",
+        fontsize=9,
+    )
+
+    fig.subplots_adjust(top=0.82, bottom=0.28)
     fig.savefig(output_dir / "acuracia_por_dataset.png", dpi=150)
     plt.close(fig)
 
