@@ -9,12 +9,12 @@ critério de parada etc.) em um arquivo CSV.
 
 As duas variantes disponíveis na reavaliação de instâncias fracas são:
 
-1. MySelfNewEssembleCPCommittee:
+1. SelfNewEssembleCPCommittee:
     Após o Silhouette, caso sejam encontradas instâncias com índice inferior
     ao threshold, seus pseudo-rótulos são removidos (-1) e elas são
     imediatamente reavaliadas pelo comitê de classificadores.
 
-2. MySelfNewEssembleCP:
+2. SelfNewEssembleCP:
     Após o Silhouette, caso sejam encontradas instâncias com índice inferior
     ao threshold, seus pseudo-rótulos são removidos (-1) e elas são
     reavaliadas pelo próprio especialista na próxima iteração.
@@ -59,7 +59,7 @@ from random import choice
 
 from numpy import where
 from pandas import read_csv
-from selfNewEssemble import MySelfNewEssemble
+from SelfNewEssembleCPCommittee import MySelfNewEssembleCPCommittee
 from selfNewEssembleCP import MySelfNewEssembleCP
 from sklearn import clone
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
@@ -200,7 +200,7 @@ def run_pipeline_for_dataset(csv_path: Path, mode: str) -> dict:
         ##########################################
         # Self-training (especialista) — modo selecionado via --mode
         if mode == "com_comite":
-            specialist = MySelfNewEssemble(
+            specialist = MySelfNewEssembleCPCommittee(
                 base_estimator=build_model(best_model_name, best_model_cls),
                 committee=committee,
                 threshold=THRESHOLD,
@@ -291,7 +291,7 @@ def parse_args():
         type=str,
         choices=["com_comite", "sem_comite"],
         default=None,
-        help="Algoritmo a usar: 'com_comite' (MySelfNewEssemble) ou "
+        help="Algoritmo a usar: 'com_comite' (MySelfNewEssembleCPCommittee) ou "
         "'sem_comite' (MySelfNewEssembleCP). "
         "Se não passar, o script pergunta interativamente.",
     )
@@ -314,7 +314,7 @@ def main():
     if mode is None:
         try:
             escolha = input(
-                "Modo do algoritmo — [1] com_comite (MySelfNewEssemble) "
+                "Modo do algoritmo — [1] com_comite (MySelfNewEssembleCPCommittee) "
                 "ou [2] sem_comite (MySelfNewEssembleCP) [padrão: 2]: "
             ).strip()
         except EOFError:

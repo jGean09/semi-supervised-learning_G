@@ -4,7 +4,7 @@ from sklearn.metrics import silhouette_samples
 from sklearn.utils import check_array
 
 
-class MySelfNewEssemble:
+class MySelfNewEssembleCPCommittee:
     def __init__(
         self,
         base_estimator,
