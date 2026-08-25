@@ -107,13 +107,13 @@ def dados_para(df: pd.DataFrame, colunas: list[str], nome_grafico: str) -> pd.Da
 
 
 ESPECIALISTA_CORES = {
-    "KNN": "#6366f1",
-    "Naive Bayes": "#f59e0b",
-    "Decision Tree": "#10b981",
-    "Random Forest": "#2563eb",
-    "XGBoost": "#ef4444",
-    "Logistic Regression": "#8b5cf6",
-    "Neural Network": "#ec4899",
+    "KNN": "#E69F00",                 
+    "Naive Bayes": "#56B4E9",         
+    "Decision Tree": "#009E73",      
+    "Random Forest": "#0072B2",       
+    "XGBoost": "#D55E00",            
+    "Logistic Regression": "#CC79A7",
+    "Neural Network": "#000000", 
 }
 
 ESPECIALISTA_SIGLAS = {
@@ -225,30 +225,55 @@ def plot_acuracia(df: pd.DataFrame, output_dir: Path):
 
 
 def plot_tempo(df: pd.DataFrame, output_dir: Path):
-    df = dados_para(df, ["tempo_self_training_s", "tempo_total_s"], "tempo de execução")
+    df = dados_para(df, ["tempo_self_training_s"], "tempo de execução")
     if df.empty:
         print("Nenhum dataset com dados de tempo, gráfico não gerado.")
         return
 
-    fig, ax = plt.subplots(figsize=(max(8, len(df) * 0.6), 5))
+    fig, ax = plt.subplots(figsize=(max(16, len(df) * 0.9), 7))
 
     x = range(len(df))
-    ax.bar(x, df["tempo_self_training_s"], label="Self-training", color="#f59e0b")
-    ax.bar(
-        x,
-        df["tempo_total_s"] - df["tempo_self_training_s"],
-        bottom=df["tempo_self_training_s"],
-        label="Resto do pipeline (seleção de modelo + comitê)",
-        color="#94a3b8",
-    )
+    tempo_ms = df["tempo_self_training_s"] * 1000
+
+    ax.bar(x, tempo_ms, label="Tempo do Self-training", color="#f59e0b")
+    ax.set_yscale("log")
+    #ax.bar(x, df["tempo_self_training_s"], label="Tempo do Self-training", color="#f59e0b")
+
     ax.set_xticks(list(x))
     ax.set_xticklabels(df["dataset_label"])
-    ax.legend()
-    style_axis(ax, "Tempo de execução por dataset", "Tempo (segundos)")
-    anotar_especialista(ax, df, x)
+    ax.legend(
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.12),
+    )
 
-    fig.subplots_adjust(bottom=0.28)
-    fig.savefig(output_dir / "tempo_execucao_por_dataset.png", dpi=150)
+    ## Siglas
+    siglas = df["melhor_modelo"].map(
+        lambda modelo: ESPECIALISTA_SIGLAS.get(modelo, modelo)
+    )
+
+    ax.set_xticklabels(
+        [
+            f"{dataset}\n({sigla})"
+            for dataset, sigla in zip(df["dataset_label"], siglas)
+        ]
+    )
+    
+    style_axis(ax, "Tempo do self-training por dataset", "Tempo (milissegundos)")
+
+    especialistas = " | ".join(
+        f"{sigla} = {nome}"
+        for nome, sigla in ESPECIALISTA_SIGLAS.items()
+    )
+    fig.text(
+        0.5,
+        0.01,
+        f"Especialistas: {especialistas}",
+        ha="center",
+        fontsize=9,
+    )
+
+    fig.subplots_adjust(top=0.82, bottom=0.35)
+    fig.savefig(output_dir / "tempo_self-training_por_dataset.png", dpi=150)
     plt.close(fig)
 
 
@@ -258,7 +283,7 @@ def plot_iteracoes(df: pd.DataFrame, output_dir: Path):
         print("Nenhum dataset com dados de iterações, gráfico não gerado.")
         return
 
-    fig, ax = plt.subplots(figsize=(max(8, len(df) * 0.6), 5))
+    fig, ax = plt.subplots(figsize=(max(16, len(df) * 0.9), 7))
 
     cores = df["criterio_parada"].map(
         {"all_labeled": "#16a34a", "max_iter": "#dc2626", "no_change": "#f59e0b"}
@@ -267,18 +292,45 @@ def plot_iteracoes(df: pd.DataFrame, output_dir: Path):
     ax.bar(range(len(df)), df["n_iteracoes"], color=cores)
     ax.set_xticks(range(len(df)))
     ax.set_xticklabels(df["dataset_label"])
-    style_axis(ax, "Número de iterações até parar (por dataset)", "Iterações")
-    anotar_especialista(ax, df, range(len(df)))
+    style_axis(ax, "Número de iterações + critério de parada", "Iterações")
+    ## Siglas
+    siglas = df["melhor_modelo"].map(
+        lambda modelo: ESPECIALISTA_SIGLAS.get(modelo, modelo)
+    )
+
+    ax.set_xticklabels(
+        [
+            f"{dataset}\n({sigla})"
+            for dataset, sigla in zip(df["dataset_label"], siglas)
+        ]
+    )
 
     from matplotlib.patches import Patch
     legenda = [
-        Patch(color="#16a34a", label="all_labeled (convergiu)"),
-        Patch(color="#dc2626", label="max_iter (não convergiu)"),
-        Patch(color="#f59e0b", label="no_change (travou sem mudança)"),
+        Patch(color="#16a34a", label="all_labeled"),
+        Patch(color="#dc2626", label="max_iter"),
+        Patch(color="#f59e0b", label="no_change"),
     ]
-    ax.legend(handles=legenda)
+    ax.legend(
+        handles=legenda,
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.12),
+        ncol=1,
+    )
+    
+    especialistas = " | ".join(
+        f"{sigla} = {nome}"
+        for nome, sigla in ESPECIALISTA_SIGLAS.items()
+    )
+    fig.text(
+        0.5,
+        0.01,
+        f"Especialistas: {especialistas}",
+        ha="center",
+        fontsize=9,
+    )
 
-    fig.subplots_adjust(bottom=0.28)
+    fig.subplots_adjust(top=0.82, bottom=0.35)
     fig.savefig(output_dir / "iteracoes_por_dataset.png", dpi=150)
     plt.close(fig)
 
@@ -289,7 +341,7 @@ def plot_rotulagem(df: pd.DataFrame, output_dir: Path):
         print("Nenhum dataset com dados de rotulagem, gráfico não gerado.")
         return
 
-    fig, ax = plt.subplots(figsize=(max(8, len(df) * 0.6), 5))
+    fig, ax = plt.subplots(figsize=(max(16, len(df) * 0.9), 7))
 
     x = range(len(df))
     largura = 0.35
@@ -297,23 +349,48 @@ def plot_rotulagem(df: pd.DataFrame, output_dir: Path):
         [i - largura / 2 for i in x],
         df["instancias_nao_rotuladas_antes"],
         width=largura,
-        label="Não rotuladas antes",
+        label="Conjunto das instâncias não rotuladas antes do self-training",
         color="#94a3b8",
     )
     ax.bar(
         [i + largura / 2 for i in x],
         df["instancias_nao_rotuladas_depois"],
         width=largura,
-        label="Não rotuladas depois (sobraram)",
-        color="#dc2626",
+        label="Conjunto das instâncias não rotuladas depois do self-training",
+        color="#ef4444",
     )
     ax.set_xticks(list(x))
     ax.set_xticklabels(df["dataset_label"])
-    ax.legend()
+    ax.legend(
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.12),
+        ncol=1,
+    )
     style_axis(ax, "Instâncias não rotuladas: antes vs. depois do self-training", "Nº de instâncias")
-    anotar_especialista(ax, df, x)
+    ## Siglas
+    siglas = df["melhor_modelo"].map(
+        lambda modelo: ESPECIALISTA_SIGLAS.get(modelo, modelo)
+    )
 
-    fig.subplots_adjust(bottom=0.28)
+    ax.set_xticklabels(
+        [
+            f"{dataset}\n({sigla})"
+            for dataset, sigla in zip(df["dataset_label"], siglas)
+        ]
+    )
+    especialistas = " | ".join(
+        f"{sigla} = {nome}"
+        for nome, sigla in ESPECIALISTA_SIGLAS.items()
+    )
+    fig.text(
+        0.5,
+        0.01,
+        f"Especialistas: {especialistas}",
+        ha="center",
+        fontsize=9,
+    )
+    
+    fig.subplots_adjust(top=0.82, bottom=0.35)
     fig.savefig(output_dir / "rotulagem_por_dataset.png", dpi=150)
     plt.close(fig)
 
