@@ -149,7 +149,7 @@ def anotar_especialista(ax, df, x_positions=None):
 
 
 def plot_acuracia(df: pd.DataFrame, output_dir: Path):
-    df = dados_para(df, ["acuracia_treino_inicial", "acuracia_especialista"], "acurácia")
+    df = dados_para(df, ["acuracia_antes_self_training", "acuracia_apos_self_training"], "acurácia")
     if df.empty:
         print("Nenhum dataset com dados de acurácia, gráfico não gerado.")
         return
@@ -160,14 +160,14 @@ def plot_acuracia(df: pd.DataFrame, output_dir: Path):
     largura = 0.35
     ax.bar(
         [i - largura / 2 for i in x],
-        df["acuracia_treino_inicial"],
+        df["acuracia_antes_self_training"],
         width=largura,
         label="Acurácia inicial (treino c/ poucos dados)",
         color="#94a3b8",
     )
     ax.bar(
         [i + largura / 2 for i in x],
-        df["acuracia_especialista"],
+        df["acuracia_apos_self_training"],
         width=largura,
         label="Acurácia final (especialista após self-training)",
         color="#2563eb",
@@ -309,7 +309,7 @@ def plot_especialista(df: pd.DataFrame, output_dir: Path):
     # ── Painel 2: acurácia por dataset, cor = especialista ──────────────────
     cores_ds = [ESPECIALISTA_CORES.get(m, "#94a3b8") for m in sub["melhor_modelo"]]
     x = range(len(sub))
-    bars = axes[1].bar(x, sub["acuracia_especialista"], color=cores_ds, edgecolor="white", linewidth=0.5)
+    bars = axes[1].bar(x, sub["acuracia_apos_self_training"], color=cores_ds, edgecolor="white", linewidth=0.5)
     axes[1].set_xticks(list(x))
     axes[1].set_xticklabels(sub["dataset_label"], rotation=45, ha="right", fontsize=8)
     axes[1].set_ylim(0, 1.05)

@@ -108,8 +108,8 @@ FIELDNAMES = [
     "n_atributos",
     "n_treino_inicial",
     "melhor_modelo",
-    "acuracia_treino_inicial",
-    "acuracia_especialista",
+    "acuracia_antes_self_training",
+    "acuracia_apos_self_training",
     "criterio_parada",
     "n_iteracoes",
     "instancias_nao_rotuladas_antes",
@@ -174,7 +174,7 @@ def run_pipeline_for_dataset(csv_path: Path, mode: str) -> dict:
         best_model_name = choice(best_models)
         best_model_cls = CLASSIFIERS[best_model_name]
         row["melhor_modelo"] = best_model_name
-        row["acuracia_treino_inicial"] = round(max_acc, 4)
+        row["acuracia_antes_self_training"] = round(max_acc, 4)
         row["tempo_selecao_modelo_s"] = round(time.perf_counter() - t0, 3)
 
         ##########################################
@@ -231,7 +231,7 @@ def run_pipeline_for_dataset(csv_path: Path, mode: str) -> dict:
 
         y_pred = specialist.predict(X_test_all)
         accuracy = accuracy_score(y_test_all, y_pred)
-        row["acuracia_especialista"] = round(accuracy, 4)
+        row["acuracia_apos_self_training"] = round(accuracy, 4)
         row["criterio_parada"] = specialist.termination_condition_
         row["n_iteracoes"] = specialist.n_iter_
 
@@ -349,7 +349,7 @@ def main():
             status = "OK" if not row["erro"] else f"ERRO ({row['erro']})"
             print(
                 f"    -> {status} | modo={mode} | especialista={row['melhor_modelo']} "
-                f"| acurácia={row['acuracia_especialista']} "
+                f"| acurácia={row['acuracia_apos_self_training']} "
                 f"| iterações={row['n_iteracoes']} | parada={row['criterio_parada']} "
                 f"| tempo_total={row['tempo_total_s']}s\n"
             )
