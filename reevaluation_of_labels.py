@@ -7,7 +7,7 @@ from selfNewEssembleCP import MySelfNewEssembleCP
 from sklearn import clone
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, auc, roc_curve
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
@@ -23,7 +23,7 @@ from src.utils import select_labels
 
 
 # Separa/prepara a base de dados
-df = read_csv('datasets/Car.csv', header=0)
+df = read_csv('datasets/Haberman.csv', header=0)
 # separa os atributos (X) e o rótulo (y)
 X = df.iloc[:,:-1].values ##Pega todas as colunas, exceto a última, como atributos
 y = df.iloc[:,-1].values ##Pega a última coluna como rótulo
@@ -42,9 +42,9 @@ classifiers = {
 
 
 # Dividir o dataset em um split 85-15 para dados de treinamento e teste.
-# Para fazer uma validação justa após todo o experimento ou uma prova final, 
+# Para fazer uma validação justa após todo o experimento ou uma prova final,
 # foi separado 15% dos dados. O especialista e o comitê serão treinados usando
-# o restante dos dados rotulados, ou seja, os 85% dos dados que possuem rótulos 
+# o restante dos dados rotulados, ou seja, os 85% dos dados que possuem rótulos
 # disponíveis .
 
 X_train_all, X_test_all, y_train_all, y_test_all = train_test_split(
@@ -93,9 +93,9 @@ results: dict[str, list[float]] = {  ##Inicializa um dicionário para armazenar 
 
 for name, model in classifiers.items():
 
-    ## Alguns classificadores, como a Regressão Logística e a Rede Neural, 
-    ## podem exigir um número maior de iterações para convergir. 
-    if name == "Logistic Regression":  
+    ## Alguns classificadores, como a Regressão Logística e a Rede Neural,
+    ## podem exigir um número maior de iterações para convergir.
+    if name == "Logistic Regression":
         model = model(max_iter=1000)
     elif name == "Neural Network":
         model = model(max_iter=3000)
@@ -189,6 +189,13 @@ y_pred = specialist.predict(X_test_all)
 # Calcula a acurácia do especialista
 accuracy = accuracy_score(y_test_all, y_pred)
 print(f"\nAcurácia do Especialista ({best_model_name}): {accuracy:.4f}")
+
+#Calcula o AUC-ROC
+#O AUC-ROC só é válido para classificação binária.
+fpr, tpr, _ = roc_curve(y_test_all, y_pred)
+roc_auc = auc(fpr, tpr)
+print(f"AUC-ROC do Especialista ({best_model_name}): {roc_auc:.4f}")
+
 
 print(f"Critério de parada: {specialist.termination_condition_}")
 print(f"Número de iterações realizadas: {specialist.n_iter_}")
