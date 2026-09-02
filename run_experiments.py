@@ -1,15 +1,28 @@
 """
 run_experiments.py
 
-Roda o pipeline (seleção do melhor classificador -> comitê -> self-training
-com MySelfNewEssembleCP) em todos os datasets da pasta `datasets/` e salva
-os resultados (acurácia, tempo de execução, iterações, critério de parada
-etc.) em um arquivo CSV.
+Roda o pipeline geral (seleciona o melhor classificador -> tenta rotular todas as
+instâncias não rotuladas -> quando nenhuma das instâncias atingem o nível de
+confiança definido, aplica o índice Silhouette) em todos os datasets da pasta
+`datasets/` e salva os resultados (acurácia, tempo de execução, iterações,
+critério de parada etc.) em um arquivo CSV.
+
+As duas variantes disponíveis na reavaliação de instâncias fracas são:
+
+1. SelfNewEssembleCPCommittee:
+    Após o Silhouette, caso sejam encontradas instâncias com índice inferior
+    ao threshold, seus pseudo-rótulos são removidos (-1) e elas são
+    imediatamente reavaliadas pelo comitê de classificadores.
+
+2. SelfNewEssembleCP:
+    Após o Silhouette, caso sejam encontradas instâncias com índice inferior
+    ao threshold, seus pseudo-rótulos são removidos (-1) e elas são
+    reavaliadas pelo próprio especialista na próxima iteração.
+
 
 Como usar:
-    Coloque este arquivo na raiz do projeto (mesmo nível de
-    GermanCredit.py / Car.py, onde o import `from selfNewEssembleCP import
-    MySelfNewEssembleCP` funciona) e rode:
+    Coloque este arquivo na raiz do projeto (mesmo nível da pasta 'datasets/'
+    e dos arquivos reevaluation_of_labels.py, selfNewEssembleCP.py, etc.) e rode:
 
         python run_experiments.py
 
@@ -46,7 +59,7 @@ from random import choice
 
 from numpy import where
 from pandas import read_csv
-from selfNewEssemble import MySelfNewEssemble
+from SelfNewEssembleCPCommittee import MySelfNewEssembleCPCommittee
 from selfNewEssembleCP import MySelfNewEssembleCP
 from sklearn import clone
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
@@ -95,8 +108,8 @@ FIELDNAMES = [
     "n_atributos",
     "n_treino_inicial",
     "melhor_modelo",
-    "acuracia_treino_inicial",
-    "acuracia_especialista",
+    "acuracia_antes_self_training",
+    "acuracia_apos_self_training",
     "criterio_parada",
     "n_iteracoes",
     "instancias_nao_rotuladas_antes",
@@ -161,7 +174,7 @@ def run_pipeline_for_dataset(csv_path: Path, mode: str) -> dict:
         best_model_name = choice(best_models)
         best_model_cls = CLASSIFIERS[best_model_name]
         row["melhor_modelo"] = best_model_name
-        row["acuracia_treino_inicial"] = round(max_acc, 4)
+        row["acuracia_antes_self_training"] = round(max_acc, 4)
         row["tempo_selecao_modelo_s"] = round(time.perf_counter() - t0, 3)
 
         ##########################################
@@ -187,7 +200,7 @@ def run_pipeline_for_dataset(csv_path: Path, mode: str) -> dict:
         ##########################################
         # Self-training (especialista) — modo selecionado via --mode
         if mode == "com_comite":
-            specialist = MySelfNewEssemble(
+            specialist = MySelfNewEssembleCPCommittee(
                 base_estimator=build_model(best_model_name, best_model_cls),
                 committee=committee,
                 threshold=THRESHOLD,
@@ -218,7 +231,7 @@ def run_pipeline_for_dataset(csv_path: Path, mode: str) -> dict:
 
         y_pred = specialist.predict(X_test_all)
         accuracy = accuracy_score(y_test_all, y_pred)
-        row["acuracia_especialista"] = round(accuracy, 4)
+        row["acuracia_apos_self_training"] = round(accuracy, 4)
         row["criterio_parada"] = specialist.termination_condition_
         row["n_iteracoes"] = specialist.n_iter_
 
@@ -278,7 +291,7 @@ def parse_args():
         type=str,
         choices=["com_comite", "sem_comite"],
         default=None,
-        help="Algoritmo a usar: 'com_comite' (MySelfNewEssemble) ou "
+        help="Algoritmo a usar: 'com_comite' (MySelfNewEssembleCPCommittee) ou "
         "'sem_comite' (MySelfNewEssembleCP). "
         "Se não passar, o script pergunta interativamente.",
     )
@@ -301,7 +314,7 @@ def main():
     if mode is None:
         try:
             escolha = input(
-                "Modo do algoritmo — [1] com_comite (MySelfNewEssemble) "
+                "Modo do algoritmo — [1] com_comite (MySelfNewEssembleCPCommittee) "
                 "ou [2] sem_comite (MySelfNewEssembleCP) [padrão: 2]: "
             ).strip()
         except EOFError:
@@ -336,7 +349,7 @@ def main():
             status = "OK" if not row["erro"] else f"ERRO ({row['erro']})"
             print(
                 f"    -> {status} | modo={mode} | especialista={row['melhor_modelo']} "
-                f"| acurácia={row['acuracia_especialista']} "
+                f"| acurácia={row['acuracia_apos_self_training']} "
                 f"| iterações={row['n_iteracoes']} | parada={row['criterio_parada']} "
                 f"| tempo_total={row['tempo_total_s']}s\n"
             )
