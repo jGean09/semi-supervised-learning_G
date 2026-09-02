@@ -7,7 +7,7 @@ from selfNewEssembleCP import MySelfNewEssembleCP
 from sklearn import clone
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, auc, roc_curve
+from sklearn.metrics import accuracy_score, auc, f1_score, roc_curve
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
@@ -195,6 +195,10 @@ print(f"\nAcurácia do Especialista ({best_model_name}): {accuracy:.4f}")
 fpr, tpr, _ = roc_curve(y_test_all, y_pred)
 roc_auc = auc(fpr, tpr)
 print(f"AUC-ROC do Especialista ({best_model_name}): {roc_auc:.4f}")
+
+# Calcula o F1-Score
+f1 = f1_score(y_test_all, y_pred, average='weighted')
+print(f"F1-Score do Especialista ({best_model_name}): {f1:.4f}")
 
 
 print(f"Critério de parada: {specialist.termination_condition_}")
