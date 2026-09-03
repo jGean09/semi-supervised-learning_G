@@ -200,6 +200,5 @@ print(f"AUC-ROC do Especialista ({best_model_name}): {roc_auc:.4f}")
 f1 = f1_score(y_test_all, y_pred, average='weighted')
 print(f"F1-Score do Especialista ({best_model_name}): {f1:.4f}")
 
-
 print(f"Critério de parada: {specialist.termination_condition_}")
 print(f"Número de iterações realizadas: {specialist.n_iter_}")
