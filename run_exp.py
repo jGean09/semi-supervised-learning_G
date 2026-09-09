@@ -229,7 +229,7 @@ def avaliar_dataset(nome_dataset, X, y, percentuais, seeds, n_folds, out_file, f
 
                     linha = {
                         "dataset":         nome_dataset,
-                        "train_size":      train_size,
+                        "train_size":      n_treino,
                         "pct":             pct,
                         "seed":            seed,
                         "fold":            fold,
@@ -255,7 +255,7 @@ def avaliar_dataset(nome_dataset, X, y, percentuais, seeds, n_folds, out_file, f
 
                     linha = {
                         "dataset":         nome_dataset,
-                        "train_size":      train_size,
+                        "train_size":      n_treino,
                         "pct":             pct,
                         "seed":            seed,
                         "fold":            fold,
