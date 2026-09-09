@@ -2,17 +2,17 @@
 run_exp.py
 
 Roda o experimento de self-training (MySelfNewEssembleCP) em datasets
-binários, com validação cruzada KFold deslizante e múltiplos percentuais
+binários, com validação cruzada StratifiedKFold e múltiplos percentuais
 de rótulos.
 
 Fluxo:
-  1. Aplica StratifiedShuffleSplit (padrão: 10 folds) diretamente no dataset completo.
-     A cada fold, o bloco de TESTE é amostrado com exatamente 15% dos dados,
-     e o TREINO com os 85% restantes. O conjunto de teste varia a cada fold:
-       Fold 1: [TESTE 15%][  TREINO 85%                       ]
-       Fold 2: [ tr ][TESTE 15%][  TREINO 85%                 ]
+  1. Aplica StratifiedKFold (padrão: 10 folds) diretamente no dataset completo.
+     A cada fold, 10% dos dados formam o TESTE e 90% o TREINO,
+     mantendo a proporção de classes em cada partição:
+       Fold 1: [TESTE 10%][  TREINO 90%                       ]
+       Fold 2: [ tr ][TESTE 10%][  TREINO 90%                 ]
        ...
-       Fold 10:[  TREINO 85%                       ][TESTE 15%]
+       Fold 10:[  TREINO 90%                       ][TESTE 10%]
   2. Dentro de cada fold de treino, aplica os percentuais de rótulos
      (5%, 10%, 15%, 20%, 25%) para simular o cenário semi-supervisionado.
 
@@ -51,7 +51,7 @@ from selfNewEssembleCP import MySelfNewEssembleCP
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
-from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.model_selection import StratifiedKFold
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
@@ -131,22 +131,22 @@ def avaliar_dataset(nome_dataset, X, y, percentuais, seeds, n_folds, out_file, f
     """
     Roda o experimento para um dataset e salva os resultados no CSV.
 
-    Fluxo (85% treino / 15% teste por fold):
-      1. Aplica StratifiedShuffleSplit diretamente no dataset completo.
-         A cada fold, 15% dos dados formam o TESTE e 85% o TREINO.
-         O conjunto de teste varia a cada fold (10 folds no padrão).
+    Fluxo (90% treino / 10% teste por fold):
+      1. Aplica StratifiedKFold diretamente no dataset completo.
+         A cada fold, 10% dos dados formam o TESTE e 90% o TREINO,
+         mantendo a proporção de classes (10 folds no padrão).
       2. Dentro de cada fold de treino, aplica os percentuais de rótulos (pct)
          para simular o cenário semi-supervisionado.
     """
     for seed in seeds:
 
         # ----------------------------------------------------------
-        # 1) StratifiedShuffleSplit direto no dataset COMPLETO
-        #    85% treino / 15% teste — conjunto de teste VARIA a cada fold
+        # 1) StratifiedKFold direto no dataset COMPLETO
+        #    90% treino / 10% teste — partição estratificada
         # ----------------------------------------------------------
-        skf = StratifiedShuffleSplit(n_splits=n_folds, test_size=0.15, random_state=seed)
+        skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=seed)
 
-        print(f"\n  [seed={seed}]  ShuffleSplit={n_folds} folds | 85% treino / 15% teste")
+        print(f"\n  [seed={seed}]  StratifiedKFold={n_folds} folds | 90% treino / 10% teste")
 
         for fold, (train_idx, test_idx) in enumerate(skf.split(X, y), start=1):
             X_treino_fold = X[train_idx]
@@ -323,7 +323,7 @@ def main():
     )
     parser.add_argument(
         "--folds", type=int, default=10,
-        help="Número de folds no StratifiedShuffleSplit (padrão: 10 | 85%% treino / 15%% teste por fold)."
+        help="Número de folds no StratifiedKFold (padrão: 10 | 90%% treino / 10%% teste por fold)."
     )
     parser.add_argument(
         "--name", type=str, default=None,
@@ -352,7 +352,7 @@ def main():
     out_file     = OUTPUT_DIR / f"{nome_arquivo}.csv"
     first_write  = True  # controla se escreve o cabeçalho
 
-    print(f"Split por fold  : 85% treino / 15% teste ({args.folds} folds)")
+    print(f"Split por fold  : 90% treino / 10% teste ({args.folds} folds | StratifiedKFold)")
     print(f"Percentuais rót.: {args.pct}")
     print(f"Seeds           : {args.seeds}")
     print(f"Saída           : {out_file}")
