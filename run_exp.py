@@ -2,13 +2,18 @@
 run_exp.py
 
 Roda o experimento de self-training (MySelfNewEssembleCP) em datasets
-binarios, com divisão train/test inicial e multiplos percentuais de rótulos.
+binários, com validação cruzada KFold deslizante e múltiplos percentuais
+de rótulos.
 
-Fluxo (conforme Figura 11):
-  1. Divide o banco completo em treino (train_size%) e teste (1-train_size%).
-  2. Sobre o conjunto de treino, forma N conjuntos via StratifiedKFold
-     para validação cruzada.
-  3. Dentro de cada fold de treino, aplica os percentuais de rótulos
+Fluxo:
+  1. Aplica StratifiedShuffleSplit (padrão: 10 folds) diretamente no dataset completo.
+     A cada fold, o bloco de TESTE é amostrado com exatamente 15% dos dados,
+     e o TREINO com os 85% restantes. O conjunto de teste varia a cada fold:
+       Fold 1: [TESTE 15%][  TREINO 85%                       ]
+       Fold 2: [ tr ][TESTE 15%][  TREINO 85%                 ]
+       ...
+       Fold 10:[  TREINO 85%                       ][TESTE 15%]
+  2. Dentro de cada fold de treino, aplica os percentuais de rótulos
      (5%, 10%, 15%, 20%, 25%) para simular o cenário semi-supervisionado.
 
 Baseado em: reevaluation_of_labels.py + selfNewEssembleCP.py
@@ -28,10 +33,7 @@ Como usar
       python run_exp.py
 
   # Personalizar parâmetros:
-      python run_exp.py --datasets Haberman --pct 0.05 0.10 --seeds 42 --folds 10
-
-  # Alterar a proporção inicial train/test (padrão: 90% treino):
-      python run_exp.py --train_size 0.8
+      python run_exp.py --datasets Haberman --pct 0.05 0.10 --seeds 42 --folds 7
 """
 
 from __future__ import annotations
@@ -49,7 +51,7 @@ from selfNewEssembleCP import MySelfNewEssembleCP
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
-from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
@@ -125,53 +127,41 @@ def normalizar_rotulos(y):
 # Loop principal de avaliação
 # ==============================================================
 
-def avaliar_dataset(nome_dataset, X, y, percentuais, seeds, n_folds, train_size, out_file, first_write):
+def avaliar_dataset(nome_dataset, X, y, percentuais, seeds, n_folds, out_file, first_write):
     """
     Roda o experimento para um dataset e salva os resultados no CSV.
 
-    Fluxo (Figura 11 da dissertação):
-      1. Divide o banco completo em treino (train_size) e teste (1-train_size)
-         usando train_test_split estratificado — essa divisão é FIXA por seed.
-      2. Sobre o conjunto de treino, cria N folds via StratifiedKFold
-         para validação cruzada.
-      3. Dentro de cada fold, aplica os percentuais de rótulos (pct)
+    Fluxo (85% treino / 15% teste por fold):
+      1. Aplica StratifiedShuffleSplit diretamente no dataset completo.
+         A cada fold, 15% dos dados formam o TESTE e 85% o TREINO.
+         O conjunto de teste varia a cada fold (10 folds no padrão).
+      2. Dentro de cada fold de treino, aplica os percentuais de rótulos (pct)
          para simular o cenário semi-supervisionado.
     """
     for seed in seeds:
 
         # ----------------------------------------------------------
-        # 1) Divisão inicial do banco: train_size% treino / restante teste
-        #    Essa divisão é feita UMA VEZ por seed, igual para todos os pcts.
+        # 1) StratifiedShuffleSplit direto no dataset COMPLETO
+        #    85% treino / 15% teste — conjunto de teste VARIA a cada fold
         # ----------------------------------------------------------
-        X_train_full, X_teste_global, y_train_full, y_teste_global = train_test_split(
-            X, y,
-            train_size=train_size,
-            stratify=y,
-            random_state=seed,
-        )
+        skf = StratifiedShuffleSplit(n_splits=n_folds, test_size=0.15, random_state=seed)
 
-        n_treino = len(y_train_full)
-        n_teste  = len(y_teste_global)
-        print(
-            f"\n  [seed={seed}]  "
-            f"Treino: {n_treino} instâncias ({train_size:.0%})  "
-            f"Teste: {n_teste} instâncias ({1-train_size:.0%})"
-        )
+        print(f"\n  [seed={seed}]  ShuffleSplit={n_folds} folds | 85% treino / 15% teste")
 
-        # ----------------------------------------------------------
-        # 2) StratifiedKFold dentro do conjunto de treino
-        # ----------------------------------------------------------
-        skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=seed)
+        for fold, (train_idx, test_idx) in enumerate(skf.split(X, y), start=1):
+            X_treino_fold = X[train_idx]
+            y_treino_fold = y[train_idx]
 
-        for fold, (sub_train_idx, _) in enumerate(skf.split(X_train_full, y_train_full), start=1):
-            # Usamos apenas o sub_train_idx para selecionar o
-            # subconjunto de treino deste fold; o teste é sempre o
-            # conjunto de teste global (divisão inicial do banco).
-            X_treino_fold = X_train_full[sub_train_idx]
-            y_treino_fold = y_train_full[sub_train_idx]
+            X_teste = X[test_idx]
+            y_teste = y[test_idx]
 
-            X_teste = X_teste_global
-            y_teste = y_teste_global
+            n_treino = len(y_treino_fold)
+            n_teste  = len(y_teste)
+            print(
+                f"\n  [seed={seed}] Fold {fold}/{n_folds}  "
+                f"Treino: {n_treino} instâncias ({n_treino/len(y):.0%})  "
+                f"Teste: {n_teste} instâncias ({n_teste/len(y):.0%})"
+            )
 
             # ----------------------------------------------------------
             # 3) Para cada percentual de rótulos, aplica o experimento
@@ -324,10 +314,6 @@ def main():
         help="Nome(s) do(s) dataset(s) (com ou sem .csv). Omita para rodar todos."
     )
     parser.add_argument(
-        "--train_size", type=float, default=0.9, metavar="T",
-        help="Proporção do banco usada para treino na divisão inicial (padrão: 0.9 = 90%%)."
-    )
-    parser.add_argument(
         "--pct", nargs="+", type=float, default=[0.05, 0.10, 0.15, 0.20, 0.25],
         metavar="P", help="Percentuais de rótulos iniciais dentro do conjunto de treino."
     )
@@ -337,7 +323,7 @@ def main():
     )
     parser.add_argument(
         "--folds", type=int, default=10,
-        help="Número de folds no StratifiedKFold sobre o conjunto de treino (padrão: 10)."
+        help="Número de folds no StratifiedShuffleSplit (padrão: 10 | 85%% treino / 15%% teste por fold)."
     )
     parser.add_argument(
         "--name", type=str, default=None,
@@ -348,10 +334,6 @@ def main():
         help="Lista os datasets disponíveis e sai."
     )
     args = parser.parse_args()
-
-    # Valida train_size
-    if not (0.0 < args.train_size < 1.0):
-        parser.error("--train_size deve ser um valor entre 0 e 1 (exclusivo), ex: 0.9")
 
     if args.list:
         listar_datasets()
@@ -370,10 +352,9 @@ def main():
     out_file     = OUTPUT_DIR / f"{nome_arquivo}.csv"
     first_write  = True  # controla se escreve o cabeçalho
 
-    print(f"Divisão inicial : {args.train_size:.0%} treino / {1-args.train_size:.0%} teste")
+    print(f"Split por fold  : 85% treino / 15% teste ({args.folds} folds)")
     print(f"Percentuais rót.: {args.pct}")
     print(f"Seeds           : {args.seeds}")
-    print(f"Folds (treino)  : {args.folds}")
     print(f"Saída           : {out_file}")
     print(f"Datasets        : {alvos}\n")
 
@@ -410,7 +391,6 @@ def main():
             percentuais=args.pct,
             seeds=args.seeds,
             n_folds=args.folds,
-            train_size=args.train_size,
             out_file=out_file,
             first_write=first_write,
         )
