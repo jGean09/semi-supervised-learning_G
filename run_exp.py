@@ -138,35 +138,36 @@ def avaliar_dataset(nome_dataset, X, y, percentuais, seeds, n_folds, out_file, f
       2. Dentro de cada fold de treino, aplica os percentuais de rótulos (pct)
          para simular o cenário semi-supervisionado.
     """
-    for seed in seeds:
+    for pct in percentuais:
 
-        # ----------------------------------------------------------
-        # 1) StratifiedKFold direto no dataset COMPLETO
-        #    90% treino / 10% teste — partição estratificada
-        # ----------------------------------------------------------
-        skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=seed)
+        print(f"\n  {'='*56}")
+        print(f"  [pct={pct:.0%}]  Rodando todos os seeds e folds")
+        print(f"  {'='*56}")
 
-        print(f"\n  [seed={seed}]  StratifiedKFold={n_folds} folds | 90% treino / 10% teste")
-
-        for fold, (train_idx, test_idx) in enumerate(skf.split(X, y), start=1):
-            X_treino_fold = X[train_idx]
-            y_treino_fold = y[train_idx]
-
-            X_teste = X[test_idx]
-            y_teste = y[test_idx]
-
-            n_treino = len(y_treino_fold)
-            n_teste  = len(y_teste)
-            print(
-                f"\n  [seed={seed}] Fold {fold}/{n_folds}  "
-                f"Treino: {n_treino} instâncias ({n_treino/len(y):.0%})  "
-                f"Teste: {n_teste} instâncias ({n_teste/len(y):.0%})"
-            )
+        for seed in seeds:
 
             # ----------------------------------------------------------
-            # 3) Para cada percentual de rótulos, aplica o experimento
+            # 1) StratifiedKFold direto no dataset COMPLETO
+            #    90% treino / 10% teste — partição estratificada
             # ----------------------------------------------------------
-            for pct in percentuais:
+            skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=seed)
+
+            print(f"\n  [pct={pct:.0%}] [seed={seed}]  StratifiedKFold={n_folds} folds | 90% treino / 10% teste")
+
+            for fold, (train_idx, test_idx) in enumerate(skf.split(X, y), start=1):
+                X_treino_fold = X[train_idx]
+                y_treino_fold = y[train_idx]
+
+                X_teste = X[test_idx]
+                y_teste = y[test_idx]
+
+                n_treino = len(y_treino_fold)
+                n_teste  = len(y_teste)
+                print(
+                    f"\n  [pct={pct:.0%}] [seed={seed}] Fold {fold}/{n_folds}  "
+                    f"Treino: {n_treino} instâncias ({n_treino/len(y):.0%})  "
+                    f"Teste: {n_teste} instâncias ({n_teste/len(y):.0%})"
+                )
 
                 # Aplica select_labels: mantém pct% rotulado,
                 # o restante vira -1 (não rotulado)
