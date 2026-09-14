@@ -47,8 +47,12 @@ from random import choice
 
 import numpy as np
 import pandas as pd
+
+
+from SelfNewEssembleCPCommittee import MySelfNewEssembleCPCommittee
 from selfNewEssembleCP import MySelfNewEssembleCP
-from sklearn.ensemble import RandomForestClassifier
+from sklearn import clone
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 from sklearn.model_selection import StratifiedKFold
@@ -114,6 +118,38 @@ def escolher_especialista(X_train, y_train, X_test, y_test):
     candidatos = [n for n, a in resultados.items() if a == max_acc]
     melhor     = choice(candidatos)
     return melhor, CLASSIFIERS[melhor]
+
+def criar_comite(X_train, y_train):
+    models = []
+
+    for nome, cls in CLASSIFIERS.items():
+        modelo = instanciar_classificador(nome, cls)
+        models.append((nome, modelo))
+
+    weights = []
+
+    for nome, modelo in models:
+        modelo_clone = clone(modelo)
+        modelo_clone.fit(X_train, y_train)
+
+        y_pred = modelo_clone.predict(X_train)
+        acc = accuracy_score(y_train, y_pred)
+
+        weights.append(acc)
+
+    total_weight = sum(weights)
+    normalized_weights = [w / total_weight for w in weights]
+
+    committee = VotingClassifier(
+        estimators=models,
+        voting="soft",
+        weights=normalized_weights,
+        verbose=False,
+    )
+
+    committee.fit(X_train, y_train)
+
+    return committee
 
 
 def normalizar_rotulos(y):
@@ -194,15 +230,21 @@ def avaliar_dataset(nome_dataset, X, y, percentuais, seeds, n_folds, out_file, f
                     X_rotulado, y_rotulado, X_teste, y_teste
                 )
 
+                committee = criar_comite(
+                    X_rotulado,
+                    y_rotulado
+                )
+
                 # Roda o self-training
                 t0 = time.time()
                 try:
-                    especialista = MySelfNewEssembleCP(
+                    especialista = MySelfNewEssembleCPCommittee(
                         base_estimator=instanciar_classificador(melhor_nome, melhor_cls),
                         threshold=THRESHOLD,
                         max_iter=MAX_ITER,
                         silhouette_threshold=SILHOUETTE_THRESHOLD,
                         verbose=False,
+                        committee=committee,
                     )
                     especialista.fit(X_treino_fold, y_semi)
 
